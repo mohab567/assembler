@@ -51,7 +51,6 @@ public class Pass2 {
 		for (int i = 0; i < labels.size(); i++) {
 			writeListing(Addresses.get(i), labels.get(i), operationCodes.get(i), operands.get(i), objectCodes.get(i));
 		}
-		checkErrors();
 		if (check) {
 			writeObject();
 		}
@@ -59,7 +58,6 @@ public class Pass2 {
 
 	private void getObjectCode(String operationCode, String operand) {
 		// this method is used to create object code
-		lineNumber++;
 		// search for operation Code in the mnemonic Table
 		boolean found = false;
 		boolean flag = false;
@@ -108,7 +106,10 @@ public class Pass2 {
 					for(int i=0;i<latable.size();i++){
 						if(latable.get(i).equals(operand)){
 							f=true;
+							//String disp =Integer.toHexString( Integer.parseInt(labels.get(lineNo), 16) - Integer.parseInt(latableAdd.get(i), 16) + 3) ;
+							System.out.println(latable.size()+"  "+latableAdd.size());
 							objectCode = mnemonicValue.concat(latableAdd.get(i));
+							
 							break;
 						}	
 					}
@@ -144,29 +145,26 @@ public class Pass2 {
 			objectCode = hex;
 		} else if (operationCode.equals("BYTE")) {
 			if (operand.charAt(0) == 'X') {
-				objectCode = operand.substring(2, operationCode.length()-1);
+				objectCode = operand.substring(2, operand.length()-1);
 			} else if (operand.charAt(0) == 'C') {
 				for (int i = 2; i < operand.length() - 1; i++) {
 					objectCode = objectCode.concat(Integer.toHexString((int) operand.charAt(i)));
 				}
 			}
-		} else if (!operationCode.equals("START") && !operationCode.equals("RESW") && !operationCode.equals("RESB")
-				&& !operationCode.equals("END")) {
+		} else if (operationCode.charAt(0) == '=') {
+			if (operationCode.charAt(1) == 'X') {
+				objectCode = operationCode.substring(3, operationCode.length()-1);
+			} else if (operationCode.charAt(1) == 'C') {
+				for (int i = 3; i < operationCode.length() - 1; i++) {
+					objectCode = objectCode.concat(Integer.toHexString((int) operationCode.charAt(i)));
+				}
+			}
+		}
+		else if (!operationCode.equals("START") && !operationCode.equals("RESW") && !operationCode.equals("RESB")
+				&& !operationCode.equals("END")&&!operationCode.equals("LTORG")&&!operationCode.equals("ORG")&&!operationCode.equals("EQU")) {
 			objectCode="not Valid operation" ;
-		}
+		} 
 		objectCodes.add(objectCode);
-	}
-
-	private void checkErrors() {
-		// this method if the first line don't contain start
-		// or the last line don't contain end
-		// if happens the assembler will not write objectfile
-		if (!this.operationCodes.get(0).equals("START")) {
-			check = false;
-		}
-		if (!this.operationCodes.get(this.operationCodes.size() - 1).equals("END")) {
-			check = false;
-		}
 	}
 
 	private void writeListing(String address, String label, String operationCode, String operand, String objectCode) {
@@ -185,8 +183,20 @@ public class Pass2 {
 		} else if (operationCode.equals("END")) {
 			listing = writeListingLine(" ", label, operationCode, operand, null);
 			listingfile.add(listing);
+			while(lineNumber != this.labels.size()){
+                listing = writeListingLine(this.Addresses.get(lineNumber), this.labels.get(lineNumber), this.operationCodes.get(lineNumber)," ", this.objectCodes.get(lineNumber));
+                listingfile.add(listing);
+                lineNumber++;
+            }
 			writeListingFile();
-		} else {
+		}else if(operationCode.equals("LTORG")||operationCode.equals("ORG")){
+			listing = writeListingLine(" ", label, operationCode, operand, null);
+			listingfile.add(listing);
+		}else if(operationCode.equals("EQU")){
+			listing = writeListingLine(address, label, operationCode, operand, null);
+			listingfile.add(listing);
+		}
+		else {
 			if (lineNumber == 1) {
 				// error if the first line don't contain start
 				listing = writeListingLine(" ", " ", " ", " ", "Error First Line Must contain Start");
@@ -222,9 +232,8 @@ public class Pass2 {
 						else
 						{		
 						listing = writeListingLine(address, label, operationCode, operand,
-								"Out of memory range of SIC machine");
+								objectCode);
 					}
-						check = false;
 						listingfile.add(listing);
 					} else {
 						listing = writeListingLine(address, label, operationCode, operand, objectCode);
@@ -290,7 +299,7 @@ public class Pass2 {
 				objectLine = "H" + label + startAddress + programLen + "\n";
 				objectProgramfile.add(objectLine);
 				objectLine = new String();
-			} else if (operationCodes.get(i).equals("END")) {
+			} else if (i == operationCodes.size() -1 ) {
 				if (objectLine.length() > 0) {
 					String length = calculateObjectCodeLength(objectLine);
 					objectLine = objectLine.replace("^^", length);
@@ -332,7 +341,6 @@ public class Pass2 {
 					objectLine = checkTextRecord(objectLine, i);
 				}
 			}
-
 		}
 	}
 
